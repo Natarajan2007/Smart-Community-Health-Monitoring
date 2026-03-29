@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-const API_URL = 'https://api.openai.com/v1/chat/completions';
+const API_URL = 'http://localhost:5000/api/chat';
 
 const systemPrompt = {
   en: `You are a helpful AI assistant trained to provide information about Aadhaar, DBT (Direct Benefit Transfer), and related Indian financial systems. You help users understand:
@@ -32,25 +31,26 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
     ];
 
     const response = await axios.post(API_URL, {
-      model: 'gpt-3.5-turbo',
       messages: messages,
-      temperature: 0.7,
-      max_tokens: 500,
-    }, {
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      }
     });
 
-    const aiMessage = response.data.choices[0].message.content;
-    return {
-      success: true,
-      message: aiMessage,
-      role: 'assistant'
-    };
+    if (response.data.success) {
+      return {
+        success: true,
+        message: response.data.message,
+        role: 'assistant'
+      };
+    } else {
+      return {
+        success: false,
+        message: language === 'en' 
+          ? 'Sorry, I encountered an error. Please try again.'
+          : 'खेद है, मुझे एक त्रुटि का सामना हुआ। कृपया फिर से प्रयास करें।',
+        role: 'assistant'
+      };
+    }
   } catch (error) {
-    console.error('OpenAI API Error:', error);
+    console.error('Chat API Error:', error.message);
     return {
       success: false,
       message: language === 'en' 
