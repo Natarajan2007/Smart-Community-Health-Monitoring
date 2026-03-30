@@ -11,6 +11,9 @@ import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
 import ChatWidget from './components/ChatWidget';
 import ChatPage from './components/ChatPage';
+import EligibilityChecker from './components/EligibilityChecker';
+import GamifiedQuiz from './components/GamifiedQuiz';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 
 function App() {
   const [language, setLanguage] = useState('en');
@@ -31,6 +34,12 @@ function App() {
           </>
         ) : currentPage === 'chat' ? (
           <ChatPage language={language} setCurrentPage={setCurrentPage} />
+        ) : currentPage === 'eligibility' ? (
+          <EligibilityChecker language={language} />
+        ) : currentPage === 'quiz' ? (
+          <GamifiedQuiz language={language} />
+        ) : currentPage === 'analytics' ? (
+          <AnalyticsDashboard language={language} />
         ) : null}
       </main>
       <Footer translations={t} />

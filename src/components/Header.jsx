@@ -21,6 +21,30 @@ export default function Header({ language, setLanguage, translations, setCurrent
             <li><a href="#contact">{translations.navbar.contact}</a></li>
             <li>
               <button 
+                onClick={() => setCurrentPage('eligibility')}
+                className="feature-nav-btn"
+              >
+                ✓ {language === 'en' ? 'Check Eligibility' : 'पात्रता जांचें'}
+              </button>
+            </li>
+            <li>
+              <button 
+                onClick={() => setCurrentPage('quiz')}
+                className="feature-nav-btn"
+              >
+                🎓 {language === 'en' ? 'Quiz' : 'क्विज़'}
+              </button>
+            </li>
+            <li>
+              <button 
+                onClick={() => setCurrentPage('analytics')}
+                className="feature-nav-btn"
+              >
+                📊 {language === 'en' ? 'Analytics' : 'विश्लेषण'}
+              </button>
+            </li>
+            <li>
+              <button 
                 onClick={() => setCurrentPage('chat')}
                 className="chat-nav-btn"
               >

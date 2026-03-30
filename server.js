@@ -12,22 +12,108 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY;
 
+// Rate limiting: track requests per IP
+const requestLimits = new Map();
+const RATE_LIMIT = 10; // 10 requests
+const RATE_WINDOW = 60000; // per 60 seconds
+
+/**
+ * Rate limiting middleware to prevent API abuse
+ */
+const rateLimitMiddleware = (req, res, next) => {
+  const ip = req.ip;
+  const now = Date.now();
+  
+  if (!requestLimits.has(ip)) {
+    requestLimits.set(ip, []);
+  }
+  
+  const timestamps = requestLimits.get(ip);
+  const recentRequests = timestamps.filter(t => now - t < RATE_WINDOW);
+  
+  if (recentRequests.length >= RATE_LIMIT) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many requests. Please wait before trying again.',
+      retryAfter: Math.ceil((recentRequests[0] + RATE_WINDOW - now) / 1000)
+    });
+  }
+  
+  recentRequests.push(now);
+  requestLimits.set(ip, recentRequests);
+  next();
+};
+
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+app.use(rateLimitMiddleware);
+
+/**
+ * Validate message format and content
+ * @param {Array} messages - Array of message objects
+ * @returns {Object} Validation result with isValid and errors
+ */
+const validateMessages = (messages) => {
+  if (!Array.isArray(messages)) {
+    return { isValid: false, error: 'Messages must be an array' };
+  }
+  
+  if (messages.length === 0) {
+    return { isValid: false, error: 'Messages array cannot be empty' };
+  }
+  
+  if (messages.length > 50) {
+    return { isValid: false, error: 'Conversation history too long (max 50 messages)' };
+  }
+  
+  for (const msg of messages) {
+    if (!msg.role || !msg.content) {
+      return { isValid: false, error: 'Each message must have role and content' };
+    }
+    if (!['system', 'user', 'assistant'].includes(msg.role)) {
+      return { isValid: false, error: 'Invalid message role' };
+    }
+    if (typeof msg.content !== 'string' || msg.content.trim().length === 0) {
+      return { isValid: false, error: 'Message content must be a non-empty string' };
+    }
+    if (msg.content.length > 4000) {
+      return { isValid: false, error: 'Message content too long (max 4000 characters)' };
+    }
+  }
+  
+  return { isValid: true };
+};
 
 // Chat endpoint
+/**
+ * POST /api/chat - Process chat messages with OpenAI
+ * @param {string} messages - Array of message objects
+ * @returns {Object} Response with success status and AI message
+ */
 app.post('/api/chat', async (req, res) => {
   try {
     const { messages } = req.body;
 
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: 'API key not configured',
-        success: false
+    // Validate messages
+    const validation = validateMessages(messages);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error
       });
     }
 
+    if (!OPENAI_API_KEY) {
+      console.error('VITE_OPENAI_API_KEY is not configured');
+      return res.status(500).json({
+        error: 'Server configuration error',
+        success: false,
+        message: 'API key not configured. Please check server setup.'
+      });
+    }
+
+    // Call OpenAI API with timeout
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -40,21 +126,44 @@ app.post('/api/chat', async (req, res) => {
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
-        }
+        },
+        timeout: 30000 // 30 second timeout
       }
     );
 
-    const aiMessage = response.data.choices[0].message.content;
+    const aiMessage = response.data?.choices?.[0]?.message?.content;
+    
+    if (!aiMessage) {
+      throw new Error('Invalid response format from OpenAI');
+    }
+    
     res.json({
       success: true,
       message: aiMessage
     });
   } catch (error) {
-    console.error('OpenAI API Error:', error.response?.data || error.message);
-    res.status(500).json({
+    const errorMessage = error.response?.data?.error?.message || error.message || 'Unknown error';
+    console.error('OpenAI API Error:', errorMessage);
+    
+    // Determine appropriate status code
+    let statusCode = 500;
+    let userMessage = 'Sorry, I encountered an error. Please try again.';
+    
+    if (error.response?.status === 401) {
+      statusCode = 500;
+      userMessage = 'Authentication error. Please check server configuration.';
+    } else if (error.response?.status === 429) {
+      statusCode = 429;
+      userMessage = 'Service is busy. Please try again in a moment.';
+    } else if (error.code === 'ECONNABORTED') {
+      statusCode = 504;
+      userMessage = 'Request timeout. Please try a simpler question.';
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: error.response?.data?.error?.message || 'Failed to get response from AI',
-      message: 'Sorry, I encountered an error. Please try again.'
+      error: userMessage,
+      message: userMessage
     });
   }
 });
