@@ -1,5 +1,24 @@
 import React from 'react';
 
+/**
+ * Education Component - Core Educational Content
+ * 
+ * Displays three main concepts about bank account types:
+ * - Aadhaar-Linked Bank Accounts
+ * - Aadhaar-Seeded Bank Accounts
+ * - DBT-Enabled Accounts
+ * 
+ * Each concept is presented in an interactive card with features list.
+ * Fully supports bilingual content (English/Hindi with RTL layout).
+ * 
+ * @component
+ * @param {Object} translations - Translation object containing education section text and content
+ * @param {Object} translations.education - Education module translations
+ * @returns {JSX.Element} Educational content section with three account type cards
+ * 
+ * @example
+ * <Education translations={translations} />
+ */
 export default function Education({ translations }) {
   const t = translations.education;
   

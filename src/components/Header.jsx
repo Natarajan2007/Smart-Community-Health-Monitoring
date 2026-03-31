@@ -1,5 +1,26 @@
 import React from 'react';
 
+/**
+ * Header Component - Navigation and Language Switcher
+ * 
+ * Provides the main navigation bar with featured buttons (Eligibility, Quiz, Analytics, Chat)
+ * and a language switcher for bilingual support (English/Hindi).
+ * 
+ * @component
+ * @param {string} language - Current language ('en' or 'hi')
+ * @param {Function} setLanguage - Callback to change the language
+ * @param {Object} translations - Translation object containing navbar text strings
+ * @param {Function} setCurrentPage - Callback to navigate to different pages
+ * @returns {JSX.Element} Navigation header with language switcher
+ * 
+ * @example
+ * <Header 
+ *   language="en" 
+ *   setLanguage={setLanguage}
+ *   translations={translations}
+ *   setCurrentPage={setCurrentPage}
+ * />
+ */
 export default function Header({ language, setLanguage, translations, setCurrentPage }) {
   return (
     <header className="header">
