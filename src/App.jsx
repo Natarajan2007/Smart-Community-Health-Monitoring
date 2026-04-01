@@ -1,4 +1,4 @@
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useEffect, useRef } from 'react';
 import './scss/App.scss';
 import { en } from './data/en.js';
 import { hi } from './data/hi.js';
@@ -12,6 +12,7 @@ import Footer from './components/Footer';
 import ChatWidget from './components/ChatWidget';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LoadingFallback } from './utils/lazyLoading';
+import { useAnalytics } from './hooks/useAnalytics';
 
 // Lazy load non-critical components
 const ChatPage = React.lazy(() => import('./components/ChatPage'));
@@ -22,7 +23,22 @@ const AnalyticsDashboard = React.lazy(() => import('./components/AnalyticsDashbo
 function App() {
   const [language, setLanguage] = useState('en');
   const [currentPage, setCurrentPage] = useState('home');
+  const { trackPage, trackLanguage } = useAnalytics();
+  const previousLanguageRef = useRef('en');
   const t = language === 'en' ? en : hi;
+
+  // Track page changes
+  useEffect(() => {
+    trackPage(currentPage);
+  }, [currentPage, trackPage]);
+
+  // Track language changes
+  useEffect(() => {
+    if (language !== previousLanguageRef.current) {
+      trackLanguage(language, previousLanguageRef.current);
+      previousLanguageRef.current = language;
+    }
+  }, [language, trackLanguage]);
 
   return (
     <ErrorBoundary>
