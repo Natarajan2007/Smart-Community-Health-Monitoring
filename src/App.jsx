@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import './scss/App.scss';
 import { en } from './data/en.js';
 import { hi } from './data/hi.js';
@@ -10,11 +10,14 @@ import FAQ from './components/FAQ';
 import ContactSection from './components/ContactSection';
 import Footer from './components/Footer';
 import ChatWidget from './components/ChatWidget';
-import ChatPage from './components/ChatPage';
-import EligibilityChecker from './components/EligibilityChecker';
-import GamifiedQuiz from './components/GamifiedQuiz';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ErrorBoundary from './components/ErrorBoundary';
+import { LoadingFallback } from './utils/lazyLoading';
+
+// Lazy load non-critical components
+const ChatPage = React.lazy(() => import('./components/ChatPage'));
+const EligibilityChecker = React.lazy(() => import('./components/EligibilityChecker'));
+const GamifiedQuiz = React.lazy(() => import('./components/GamifiedQuiz'));
+const AnalyticsDashboard = React.lazy(() => import('./components/AnalyticsDashboard'));
 
 function App() {
   const [language, setLanguage] = useState('en');
@@ -35,13 +38,21 @@ function App() {
               <ContactSection translations={t} />
             </>
           ) : currentPage === 'chat' ? (
-            <ChatPage language={language} setCurrentPage={setCurrentPage} />
+            <Suspense fallback={<LoadingFallback />}>
+              <ChatPage language={language} setCurrentPage={setCurrentPage} />
+            </Suspense>
           ) : currentPage === 'eligibility' ? (
-            <EligibilityChecker language={language} />
+            <Suspense fallback={<LoadingFallback />}>
+              <EligibilityChecker language={language} />
+            </Suspense>
           ) : currentPage === 'quiz' ? (
-            <GamifiedQuiz language={language} />
+            <Suspense fallback={<LoadingFallback />}>
+              <GamifiedQuiz language={language} />
+            </Suspense>
           ) : currentPage === 'analytics' ? (
-            <AnalyticsDashboard language={language} />
+            <Suspense fallback={<LoadingFallback />}>
+              <AnalyticsDashboard language={language} />
+            </Suspense>
           ) : null}
         </main>
         <Footer translations={t} />
