@@ -176,6 +176,8 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
  * @returns {Object} Eligibility report with success status and readiness percentage
  */
 export const checkDBTEligibility = (inputs, language = 'en') => {
+  // Validate inputs
+  const validation = eligibilityService.validateInputs(inputs);
   
   if (!validation.isValid) {
     return {

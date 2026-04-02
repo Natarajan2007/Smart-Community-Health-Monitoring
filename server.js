@@ -12,6 +12,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY;
 
+// Logger utility for consistent logging
+const logger = {
+  info: (msg, data = {}) => console.log(`[${new Date().toISOString()}] INFO:`, msg, data),
+  error: (msg, error = {}) => console.error(`[${new Date().toISOString()}] ERROR:`, msg, error),
+  warn: (msg, data = {}) => console.warn(`[${new Date().toISOString()}] WARN:`, msg, data)
+};
+
 // Rate limiting: track requests per IP
 const requestLimits = new Map();
 const RATE_LIMIT = 10; // 10 requests
@@ -32,6 +39,7 @@ const rateLimitMiddleware = (req, res, next) => {
   const recentRequests = timestamps.filter(t => now - t < RATE_WINDOW);
   
   if (recentRequests.length >= RATE_LIMIT) {
+    logger.warn('Rate limit exceeded', { ip, requestCount: recentRequests.length });
     return res.status(429).json({
       success: false,
       error: 'Too many requests. Please wait before trying again.',
@@ -105,13 +113,15 @@ app.post('/api/chat', async (req, res) => {
     }
 
     if (!OPENAI_API_KEY) {
-      console.error('VITE_OPENAI_API_KEY is not configured');
+      logger.error('VITE_OPENAI_API_KEY is not configured');
       return res.status(500).json({
         error: 'Server configuration error',
         success: false,
         message: 'API key not configured. Please check server setup.'
       });
     }
+
+    logger.info('Processing chat request', { messageCount: messages.length });
 
     // Call OpenAI API with timeout
     const response = await axios.post(
@@ -134,16 +144,18 @@ app.post('/api/chat', async (req, res) => {
     const aiMessage = response.data?.choices?.[0]?.message?.content;
     
     if (!aiMessage) {
+      logger.error('Invalid response from OpenAI', { response: response.data });
       throw new Error('Invalid response format from OpenAI');
     }
     
+    logger.info('Chat request processed successfully');
     res.json({
       success: true,
       message: aiMessage
     });
   } catch (error) {
     const errorMessage = error.response?.data?.error?.message || error.message || 'Unknown error';
-    console.error('OpenAI API Error:', errorMessage);
+    logger.error('OpenAI API Error', { message: errorMessage, status: error.response?.status });
     
     // Determine appropriate status code
     let statusCode = 500;
@@ -170,10 +182,10 @@ app.post('/api/chat', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
-  console.log(`Chat API available at http://localhost:${PORT}/api/chat`);
+  logger.info(`Backend server running on http://localhost:${PORT}`);
+  logger.info(`Chat API available at http://localhost:${PORT}/api/chat`);
 });
