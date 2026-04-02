@@ -5,10 +5,55 @@ import { recommendationEngine } from './recommendationEngine.js';
 /**
  * OpenAI Service - Handles all AI chat interactions and eligibility checks
  * @module openaiService
+ * 
+ * Performance Features:
+ * - Request caching for identical queries
+ * - Conversation history limiting (last 10 messages)
+ * - Input sanitization and validation
+ * - Request timeout management
  */
 
 const API_URL = 'http://localhost:5000/api/chat';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
+
+// Simple cache for repeated queries (LRU-style)
+const queryCache = new Map();
+const CACHE_SIZE = 50; // Max cached queries
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get cached response if available and not expired
+ * @param {string} cacheKey - Unique key for the query
+ * @returns {Object|null} Cached response or null if not found/expired
+ */
+const getCachedResponse = (cacheKey) => {
+  if (queryCache.has(cacheKey)) {
+    const cached = queryCache.get(cacheKey);
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('[Cache] Hit for:', cacheKey);
+      return cached.response;
+    } else {
+      queryCache.delete(cacheKey);
+    }
+  }
+  return null;
+};
+
+/**
+ * Cache a response with TTL
+ * @param {string} cacheKey - Unique key for the query
+ * @param {Object} response - Response to cache
+ */
+const setCacheResponse = (cacheKey, response) => {
+  if (queryCache.size >= CACHE_SIZE) {
+    const firstKey = queryCache.keys().next().value;
+    queryCache.delete(firstKey);
+  }
+  queryCache.set(cacheKey, {
+    timestamp: Date.now(),
+    response
+  });
+};
 
 const systemPrompt = {
   en: `You are an expert AI assistant for the DBT Awareness Platform helping Indian students understand:
@@ -123,6 +168,7 @@ const validateUserState = (userState) => {
 /**
  * Chat with AI - Send a message and get an AI response
  * Provides intelligent responses based on DBT platform context
+ * Features: Input validation, caching, sanitization
  * @param {string} message - User message or query
  * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
  * @param {Array<Object>} conversationHistory - Previous messages in conversation for context
@@ -130,6 +176,8 @@ const validateUserState = (userState) => {
  */
 export const chatWithAI = async (message, language = 'en', conversationHistory = []) => {
   try {
+    const startTime = performance.now();
+    
     // Validate and normalize language
     const validLanguage = validateLanguage(language);
     
@@ -156,6 +204,18 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
       };
     }
 
+    // Check cache for repeated queries
+    const cacheKey = `${validLanguage}:${sanitizedMessage}`;
+    const cachedResponse = getCachedResponse(cacheKey);
+    if (cachedResponse) {
+      const duration = performance.now() - startTime;
+      return {
+        ...cachedResponse,
+        cached: true,
+        processingTime: Math.round(duration)
+      };
+    }
+
     // Validate conversation history
     if (!Array.isArray(conversationHistory)) {
       return {
@@ -167,9 +227,12 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
       };
     }
 
+    // Limit conversation to last 10 messages for performance
+    const recentHistory = conversationHistory.slice(-10);
+    
     const messages = [
       { role: 'system', content: systemPrompt[validLanguage] },
-      ...conversationHistory.slice(-10), // Keep last 10 messages for context
+      ...recentHistory,
       { role: 'user', content: sanitizedMessage }
     ];
 
@@ -180,21 +243,32 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
     });
 
     if (response.data.success && response.data.message) {
-      return {
+      const result = {
+        success: true,
+        message: response.data.message,
+        role: 'assistant',
+        cached: false,
+        processingTime: Math.round(performance.now() - startTime)
+      };
+      
+      // Cache successful responses
+      setCacheResponse(cacheKey, {
         success: true,
         message: response.data.message,
         role: 'assistant'
-      };
+      });
+      
+      return result;
     } else {
       throw new Error('Invalid response from server');
     }
   } catch (error) {
     console.error('Chat API Error:', error.message);
     
+    const validLanguage = validateLanguage(language);
     const isServerError = error.response?.status >= 500;
     const isNetworkError = error.code === 'ECONNABORTED' || error.code === 'ENOTFOUND';
     
-    const validLanguage = validateLanguage(language);
     let userMessage = validLanguage === 'en' 
       ? 'Sorry, I encountered an error. Please try again.'
       : 'खेद है, मुझे एक त्रुटि का सामना हुआ। कृपया फिर से प्रयास करें।';

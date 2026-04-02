@@ -16,7 +16,31 @@ const OPENAI_API_KEY = process.env.VITE_OPENAI_API_KEY;
 const logger = {
   info: (msg, data = {}) => console.log(`[${new Date().toISOString()}] INFO:`, msg, data),
   error: (msg, error = {}) => console.error(`[${new Date().toISOString()}] ERROR:`, msg, error),
-  warn: (msg, data = {}) => console.warn(`[${new Date().toISOString()}] WARN:`, msg, data)
+  warn: (msg, data = {}) => console.warn(`[${new Date().toISOString()}] WARN:`, msg, data),
+  debug: (msg, data = {}) => console.log(`[${new Date().toISOString()}] DEBUG:`, msg, data)
+};
+
+// Performance monitoring middleware
+const performanceMonitor = (req, res, next) => {
+  req.startTime = Date.now();
+  const originalSend = res.send;
+  
+  res.send = function(data) {
+    const duration = Date.now() - req.startTime;
+    const memUsage = process.memoryUsage();
+    
+    logger.debug('Request completed', {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      memory: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`
+    });
+    
+    originalSend.call(this, data);
+  };
+  
+  next();
 };
 
 // Rate limiting: track requests per IP
@@ -55,6 +79,7 @@ const rateLimitMiddleware = (req, res, next) => {
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+app.use(performanceMonitor);
 app.use(rateLimitMiddleware);
 
 /**
@@ -96,16 +121,21 @@ const validateMessages = (messages) => {
 // Chat endpoint
 /**
  * POST /api/chat - Process chat messages with OpenAI
+ * Features: Rate limiting, validation, error handling, performance monitoring
  * @param {string} messages - Array of message objects
  * @returns {Object} Response with success status and AI message
  */
 app.post('/api/chat', async (req, res) => {
+  const requestId = Date.now();
+  const startTime = Date.now();
+  
   try {
     const { messages } = req.body;
 
     // Validate messages
     const validation = validateMessages(messages);
     if (!validation.isValid) {
+      logger.warn('Invalid message format', { requestId, error: validation.error });
       return res.status(400).json({
         success: false,
         error: validation.error
@@ -113,7 +143,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     if (!OPENAI_API_KEY) {
-      logger.error('VITE_OPENAI_API_KEY is not configured');
+      logger.error('VITE_OPENAI_API_KEY is not configured', { requestId });
       return res.status(500).json({
         error: 'Server configuration error',
         success: false,
@@ -121,7 +151,7 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    logger.info('Processing chat request', { messageCount: messages.length });
+    logger.info('Processing chat request', { requestId, messageCount: messages.length });
 
     // Call OpenAI API with timeout
     const response = await axios.post(
@@ -144,18 +174,22 @@ app.post('/api/chat', async (req, res) => {
     const aiMessage = response.data?.choices?.[0]?.message?.content;
     
     if (!aiMessage) {
-      logger.error('Invalid response from OpenAI', { response: response.data });
+      logger.error('Invalid response from OpenAI', { requestId, response: response.data });
       throw new Error('Invalid response format from OpenAI');
     }
     
-    logger.info('Chat request processed successfully');
+    const duration = Date.now() - startTime;
+    logger.info('Chat request processed successfully', { requestId, duration: `${duration}ms` });
+    
     res.json({
       success: true,
-      message: aiMessage
+      message: aiMessage,
+      processingTime: duration
     });
   } catch (error) {
+    const duration = Date.now() - startTime;
     const errorMessage = error.response?.data?.error?.message || error.message || 'Unknown error';
-    logger.error('OpenAI API Error', { message: errorMessage, status: error.response?.status });
+    logger.error('OpenAI API Error', { requestId, message: errorMessage, status: error.response?.status, duration: `${duration}ms` });
     
     // Determine appropriate status code
     let statusCode = 500;
