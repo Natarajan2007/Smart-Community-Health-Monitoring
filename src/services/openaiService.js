@@ -65,32 +65,79 @@ TONE: Friendly, supportive, patient - users may be frustrated or have low tech l
 };
 
 /**
- * Sanitize user input to prevent injection attacks
- * @param {string} input - User input string
- * @returns {string} Sanitized input
+ * Sanitize user input to prevent injection attacks and malicious content
+ * @param {string} input - User input string to sanitize
+ * @param {number} maxLength - Maximum allowed length (default: 4000)
+ * @returns {string} Sanitized and trimmed input
  */
-const sanitizeInput = (input) => {
+const sanitizeInput = (input, maxLength = 4000) => {
   if (typeof input !== 'string') return '';
+  
   return input
     .trim()
-    .substring(0, 4000) // Limit length
-    .replace(/[<>]/g, ''); // Remove potentially harmful characters
+    .substring(0, maxLength)
+    .replace(/[<>]/g, '') // Remove HTML tags
+    .replace(/[\/\\]/g, '') // Remove slashes
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ''); // Remove control characters
+};
+
+/**
+ * Validate language parameter
+ * @param {string} language - Language code to validate
+ * @returns {string} Validated language code ('en' or 'hi')
+ */
+const validateLanguage = (language) => {
+  return ['en', 'hi'].includes(language) ? language : 'en';
+};
+
+/**
+ * Validate user state object structure
+ * @param {Object} userState - User state object to validate
+ * @returns {Object} Validation result with isValid and errors
+ */
+const validateUserState = (userState) => {
+  if (!userState || typeof userState !== 'object') {
+    return { 
+      isValid: false, 
+      errors: ['User state must be a valid object'] 
+    };
+  }
+  
+  const requiredFields = ['aadhaarLinked', 'aadhaarSeeded', 'npciMapped', 'accountActive'];
+  const errors = [];
+  
+  requiredFields.forEach(field => {
+    if (!(field in userState)) {
+      errors.push(`Missing required field: ${field}`);
+    } else if (typeof userState[field] !== 'boolean') {
+      errors.push(`Field ${field} must be a boolean`);
+    }
+  });
+  
+  return { 
+    isValid: errors.length === 0, 
+    errors 
+  };
 };
 
 /**
  * Chat with AI - Send a message and get an AI response
- * @param {string} message - User message
- * @param {string} language - Language code ('en' or 'hi')
- * @param {Array} conversationHistory - Previous messages in conversation
- * @returns {Promise<Object>} Response with success status and message
+ * Provides intelligent responses based on DBT platform context
+ * @param {string} message - User message or query
+ * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
+ * @param {Array<Object>} conversationHistory - Previous messages in conversation for context
+ * @returns {Promise<Object>} Response with success status and AI message/error details
  */
 export const chatWithAI = async (message, language = 'en', conversationHistory = []) => {
   try {
+    // Validate and normalize language
+    const validLanguage = validateLanguage(language);
+    
     // Input validation
     if (!message || typeof message !== 'string') {
       return {
         success: false,
-        message: language === 'en' 
+        message: validLanguage === 'en' 
           ? 'Invalid message format'
           : 'अमान्य संदेश प्रारूप',
         role: 'assistant'
@@ -102,7 +149,7 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
     if (sanitizedMessage.length === 0) {
       return {
         success: false,
-        message: language === 'en' 
+        message: validLanguage === 'en' 
           ? 'Please enter a valid message'
           : 'कृपया एक वैध संदेश दर्ज करें',
         role: 'assistant'
@@ -113,7 +160,7 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
     if (!Array.isArray(conversationHistory)) {
       return {
         success: false,
-        message: language === 'en' 
+        message: validLanguage === 'en' 
           ? 'Invalid conversation history'
           : 'अमान्य बातचीत इतिहास',
         role: 'assistant'
@@ -121,7 +168,7 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
     }
 
     const messages = [
-      { role: 'system', content: systemPrompt[language] },
+      { role: 'system', content: systemPrompt[validLanguage] },
       ...conversationHistory.slice(-10), // Keep last 10 messages for context
       { role: 'user', content: sanitizedMessage }
     ];
@@ -147,16 +194,17 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
     const isServerError = error.response?.status >= 500;
     const isNetworkError = error.code === 'ECONNABORTED' || error.code === 'ENOTFOUND';
     
-    let userMessage = language === 'en' 
+    const validLanguage = validateLanguage(language);
+    let userMessage = validLanguage === 'en' 
       ? 'Sorry, I encountered an error. Please try again.'
       : 'खेद है, मुझे एक त्रुटि का सामना हुआ। कृपया फिर से प्रयास करें।';
     
     if (isNetworkError) {
-      userMessage = language === 'en'
+      userMessage = validLanguage === 'en'
         ? 'Connection error. Please check your internet and try again.'
         : 'कनेक्शन त्रुटि। कृपया अपना इंटरनेट जांचें और फिर से प्रयास करें।';
     } else if (error.response?.status === 429) {
-      userMessage = language === 'en'
+      userMessage = validLanguage === 'en'
         ? 'Too many requests. Please wait a moment and try again.'
         : 'बहुत सारे अनुरोध। कृपया एक क्षण प्रतीक्षा करें और फिर से प्रयास करें।';
     }
@@ -171,11 +219,19 @@ export const chatWithAI = async (message, language = 'en', conversationHistory =
 
 /**
  * Check DBT eligibility based on user inputs
- * @param {Object} inputs - User input data (aadhaarLinked, aadhaarSeeded, npciMapped, accountActive)
- * @param {string} language - Language code ('en' or 'hi')
- * @returns {Object} Eligibility report with success status and readiness percentage
+ * Evaluates user's current state across all required components for DBT readiness
+ * @param {Object} inputs - User input data with the following structure:
+ *   - aadhaarLinked {boolean} - Whether Aadhaar is linked to bank account
+ *   - aadhaarSeeded {boolean} - Whether Aadhaar is seeded in bank system
+ *   - npciMapped {boolean} - Whether account is NPCI mapped for DBT
+ *   - accountActive {boolean} - Whether the account is active
+ * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
+ * @returns {Object} Eligibility report with success status, readiness percentage, and recommendations
  */
 export const checkDBTEligibility = (inputs, language = 'en') => {
+  // Validate language
+  const validLanguage = validateLanguage(language);
+  
   // Validate inputs
   const validation = eligibilityService.validateInputs(inputs);
   
@@ -183,13 +239,13 @@ export const checkDBTEligibility = (inputs, language = 'en') => {
     return {
       success: false,
       errors: validation.errors,
-      message: language === 'en' 
+      message: validLanguage === 'en' 
         ? 'Invalid input provided'
         : 'अमान्य इनपुट प्रदान किया गया'
     };
   }
 
-  const report = eligibilityService.generateReport(inputs, language);
+  const report = eligibilityService.generateReport(inputs, validLanguage);
   return {
     success: true,
     ...report
@@ -198,11 +254,17 @@ export const checkDBTEligibility = (inputs, language = 'en') => {
 
 /**
  * Get personalized recommendations for user based on DBT readiness
- * @param {Object} inputs - User state (aadhaarLinked, aadhaarSeeded, npciMapped)
- * @param {string} language - Language code ('en' or 'hi')
+ * Generates actionable recommendations based on current user state
+ * @param {Object} inputs - User state object containing:
+ *   - aadhaarLinked {boolean}
+ *   - aadhaarSeeded {boolean}
+ *   - npciMapped {boolean}
+ *   - accountActive {boolean}
+ * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
  * @returns {Object} Success status and personalized recommendations array
  */
 export const getPersonalizedRecommendations = (inputs, language = 'en') => {
+  const validLanguage = validateLanguage(language);
   const validation = eligibilityService.validateInputs(inputs);
   
   if (!validation.isValid) {
@@ -212,7 +274,7 @@ export const getPersonalizedRecommendations = (inputs, language = 'en') => {
     };
   }
 
-  const recommendations = recommendationEngine.generateRecommendations(inputs, language);
+  const recommendations = recommendationEngine.generateRecommendations(inputs, validLanguage);
   return {
     success: true,
     recommendations
@@ -221,12 +283,21 @@ export const getPersonalizedRecommendations = (inputs, language = 'en') => {
 
 /**
  * Get solution for a specific DBT-related issue
- * @param {string} issueId - Issue identifier (e.g., 'payment_failed', 'account_inactive')
- * @param {string} language - Language code ('en' or 'hi')
- * @returns {Object} Success status and solution details
+ * Provides troubleshooting steps and solutions for identified problems
+ * @param {string} issueId - Issue identifier (e.g., 'payment_failed', 'account_inactive', 'linking_failed')
+ * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
+ * @returns {Object} Success status and solution details with steps
  */
 export const getIssueSolution = (issueId, language = 'en') => {
-  const solution = recommendationEngine.suggestSolutions(issueId, language);
+  if (typeof issueId !== 'string' || issueId.trim().length === 0) {
+    return {
+      success: false,
+      error: language === 'en' ? 'Invalid issue ID' : 'अमान्य समस्या ID'
+    };
+  }
+  
+  const validLanguage = validateLanguage(language);
+  const solution = recommendationEngine.suggestSolutions(issueId, validLanguage);
   return {
     success: solution !== null,
     solution
@@ -235,12 +306,21 @@ export const getIssueSolution = (issueId, language = 'en') => {
 
 /**
  * Get contextual help for a specific topic or feature
- * @param {string} topic - Topic name (e.g., 'aadhaar_linking', 'dbt_transfer')
- * @param {string} language - Language code ('en' or 'hi')
- * @returns {Object} Success status and help content
+ * Provides comprehensive information and guidance for DBT-related topics
+ * @param {string} topic - Topic name (e.g., 'aadhaar_linking', 'dbt_transfer', 'npci_mapping')
+ * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
+ * @returns {Object} Success status and help content with examples
  */
 export const getContextualHelp = (topic, language = 'en') => {
-  const help = recommendationEngine.getContextualHelp(topic, language);
+  if (typeof topic !== 'string' || topic.trim().length === 0) {
+    return {
+      success: false,
+      error: language === 'en' ? 'Invalid topic' : 'अमान्य विषय'
+    };
+  }
+  
+  const validLanguage = validateLanguage(language);
+  const help = recommendationEngine.getContextualHelp(topic, validLanguage);
   return {
     success: true,
     help
@@ -249,33 +329,38 @@ export const getContextualHelp = (topic, language = 'en') => {
 
 /**
  * Chat with AI using context-awareness of user's DBT readiness state
- * Provides personalized recommendations based on user progress
+ * Provides personalized recommendations based on user progress and needs
  * @param {string} message - User's message or query
- * @param {Object} userState - User's current state (aadhaarLinked, aadhaarSeeded, npciMapped, accountActive)
- * @param {string} language - Language code ('en' or 'hi')
- * @param {Array} conversationHistory - Previous messages in conversation for context
+ * @param {Object} userState - User's current state with boolean flags for DBT progress
+ * @param {string} language - Language code ('en' or 'hi') - defaults to 'en'
+ * @param {Array<Object>} conversationHistory - Previous messages in conversation for context
  * @returns {Promise<Object>} Response with AI message and contextual recommendations
  */
 export const chatWithContextAwareness = async (message, userState, language = 'en', conversationHistory = []) => {
   try {
+    const validLanguage = validateLanguage(language);
+    
     // Input validation
     if (!message || typeof message !== 'string') {
       return {
         success: false,
-        message: language === 'en' 
+        message: validLanguage === 'en' 
           ? 'Invalid message format'
           : 'अमान्य संदेश प्रारूप',
         role: 'assistant'
       };
     }
 
-    if (!userState || typeof userState !== 'object') {
+    // Validate user state
+    const userStateValidation = validateUserState(userState);
+    if (!userStateValidation.isValid) {
       return {
         success: false,
-        message: language === 'en' 
+        message: validLanguage === 'en' 
           ? 'Invalid user state'
           : 'अमान्य उपयोगकर्ता स्थिति',
-        role: 'assistant'
+        role: 'assistant',
+        errors: userStateValidation.errors
       };
     }
 
@@ -283,7 +368,7 @@ export const chatWithContextAwareness = async (message, userState, language = 'e
     if (sanitizedMessage.length === 0) {
       return {
         success: false,
-        message: language === 'en' 
+        message: validLanguage === 'en' 
           ? 'Please enter a valid message'
           : 'कृपया एक वैध संदेश दर्ज करें',
         role: 'assistant'
@@ -291,15 +376,15 @@ export const chatWithContextAwareness = async (message, userState, language = 'e
     }
 
     // Get personalized recommendations based on user state
-    const recommendations = recommendationEngine.generateRecommendations(userState, language);
+    const recommendations = recommendationEngine.generateRecommendations(userState, validLanguage);
     
     // Build context-aware system prompt with user's readiness status
     const statusInfo = `${userState.aadhaarLinked ? '✓' : '✗'} Linked | ${userState.aadhaarSeeded ? '✓' : '✗'} Seeded | ${userState.npciMapped ? '✓' : '✗'} NPCI Mapped`;
     const priorityActions = recommendations.slice(0, 3)
-      .map(r => `- ${r.title?.[language] || r.title || ''}`)
+      .map(r => `- ${r.title?.[validLanguage] || r.title || ''}`)
       .join('\n');
     
-    const contextPrompt = systemPrompt[language] + `\n\nUSER CONTEXT:\nCurrent DBT Readiness: ${statusInfo}\n\nPriority Actions:\n${priorityActions}`;
+    const contextPrompt = systemPrompt[validLanguage] + `\n\nUSER CONTEXT:\nCurrent DBT Readiness: ${statusInfo}\n\nPriority Actions:\n${priorityActions}`;
 
     const messages = [
       { role: 'system', content: contextPrompt },
@@ -326,13 +411,14 @@ export const chatWithContextAwareness = async (message, userState, language = 'e
   } catch (error) {
     console.error('Chat API Error:', error.message);
     
+    const validLanguage = validateLanguage(language);
     const isNetworkError = error.code === 'ECONNABORTED' || error.code === 'ENOTFOUND';
-    let userMessage = language === 'en' 
+    let userMessage = validLanguage === 'en' 
       ? 'Sorry, I encountered an error. Please try again.'
       : 'खेद है, मुझे एक त्रुटि का सामना हुआ। कृपया फिर से प्रयास करें।';
     
     if (isNetworkError) {
-      userMessage = language === 'en'
+      userMessage = validLanguage === 'en'
         ? 'Connection error. Please check your internet and try again.'
         : 'कनेक्शन त्रुटि। कृपया अपना इंटरनेट जांचें और फिर से प्रयास करें।';
     }
