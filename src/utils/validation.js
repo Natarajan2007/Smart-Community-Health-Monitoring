@@ -115,7 +115,65 @@ export const sanitizeInput = (input) => {
 };
 
 /**
- * Validates all form data in an object
+ * Validates that value is not null or undefined
+ * @param {*} value - Value to validate
+ * @returns {boolean} True if value exists
+ * @example
+ * isRequired('test') // true
+ * isRequired(null) // false
+ */
+export const isRequired = (value) => {
+  return value !== null && value !== undefined && value !== '';
+};
+
+/**
+ * Validates URL format
+ * @param {string} url - URL to validate
+ * @returns {boolean} True if URL is valid
+ * @example
+ * isValidUrl('https://example.com') // true
+ */
+export const isValidUrl = (url) => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Validates that string contains only numbers
+ * @param {string} value - Value to validate
+ * @returns {boolean} True if contains only numbers
+ */
+export const isNumeric = (value) => {
+  return /^\d+$/.test(value?.toString() || '');
+};
+
+/**
+ * Validates that string contains only alphabetic characters
+ * @param {string} value - Value to validate
+ * @returns {boolean} True if alphabetic only
+ */
+export const isAlphabetic = (value) => {
+  return /^[a-zA-Z\s]+$/.test(value?.toString() || '');
+};
+
+/**
+ * Validates that value is within a numeric range
+ * @param {number} value - Value to validate
+ * @param {number} min - Minimum value
+ * @param {number} max - Maximum value
+ * @returns {boolean} True if value is in range
+ */
+export const isInRange = (value, min, max) => {
+  const num = Number(value);
+  return !isNaN(num) && num >= min && num <= max;
+};
+
+/**
+ * Validates all form data in an object with support for nested validation
  * @param {Object} data - Form data object to validate
  * @param {Object} rules - Validation rules object
  * @returns {Object} Object with validation results and errors
@@ -134,13 +192,69 @@ export const validateForm = (data, rules) => {
     const rule = rules[field];
     const value = data[field];
 
-    if (!rule.validator(value)) {
-      errors[field] = rule.message;
-      isValid = false;
+    if (Array.isArray(rule.validators)) {
+      // Multiple validators for same field
+      for (const validator of rule.validators) {
+        if (!validator.check(value)) {
+          errors[field] = validator.message;
+          isValid = false;
+          break;
+        }
+      }
+    } else if (rule.validator) {
+      // Single validator
+      if (!rule.validator(value)) {
+        errors[field] = rule.message;
+        isValid = false;
+      }
     }
   });
 
   return { isValid, errors };
+};
+
+/**
+ * Create a reusable validator function
+ * @param {Function} validatorFn - Validation function
+ * @param {string} errorMessage - Error message to display
+ * @returns {Object} Validator object
+ */
+export const createValidator = (validatorFn, errorMessage) => {
+  return {
+    check: validatorFn,
+    message: errorMessage
+  };
+};
+
+/**
+ * Batch validate multiple inputs with custom validators
+ * @param {Object} inputs - Input values to validate
+ * @param {Array<{field: string, validators: Array}>} schema - Validation schema
+ * @returns {Object} Validation result with errors
+ */
+export const batchValidate = (inputs, schema) => {
+  const errors = {};
+  const validated = {};
+
+  schema.forEach(({ field, validators }) => {
+    const value = inputs[field];
+    validated[field] = value;
+
+    for (const validator of validators) {
+      if (!validator.check(value)) {
+        if (!errors[field]) {
+          errors[field] = [];
+        }
+        errors[field].push(validator.message);
+      }
+    }
+  });
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+    validated
+  };
 };
 
 /**
