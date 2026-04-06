@@ -7,18 +7,57 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
 
-# Editor directories and files
+# Build outputs
+dist/
+dist-ssr/
+*.tsbuildinfo
+build/
+.cache/
+.parcel-cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE & Editor files
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-workspace
+*.sublime-project
+
+# OS specific
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+__pycache__/
+
+# Vercel
+.vercel
+.output
+
+# Misc
+*.local
+.cache
