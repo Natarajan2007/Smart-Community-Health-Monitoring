@@ -1,35 +1,125 @@
 /**
  * Environment Variable Validator
  * Validates required environment variables at application startup
+ * Provides configuration management and type validation
  * @module envValidator
  */
 
 /**
- * List of required environment variables
+ * List of required environment variables with validation rules
  * @type {Object}
  */
 const REQUIRED_ENV_VARS = {
+  // API Configuration
   VITE_OPENAI_API_KEY: {
     required: true,
-    description: 'OpenAI API key for chat functionality'
+    description: 'OpenAI API key for chat functionality',
+    type: 'string',
+    sensitive: true,
+    validate: (value) => value && value.startsWith('sk-')
   },
+  VITE_OPENAI_MODEL: {
+    required: false,
+    description: 'OpenAI model selection',
+    default: 'gpt-3.5-turbo',
+    type: 'string',
+    allowedValues: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo-preview', 'gpt-4-turbo']
+  },
+  VITE_OPENAI_MAX_TOKENS: {
+    required: false,
+    description: 'Maximum tokens for API responses',
+    default: '2048',
+    type: 'number',
+    validate: (value) => {
+      const num = parseInt(value);
+      return num >= 256 && num <= 4096;
+    }
+  },
+  
+  // Application Configuration
   VITE_APP_NAME: {
     required: false,
     description: 'Application name',
-    default: 'Aadhaar & DBT Awareness Platform'
+    default: 'Aadhaar & DBT Awareness Platform',
+    type: 'string'
   },
   VITE_API_URL: {
     required: false,
     description: 'Backend API URL',
-    default: 'http://localhost:5000'
+    default: 'http://localhost:5000',
+    type: 'string',
+    validate: (value) => {
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  },
+  
+  // Server Configuration
+  PORT: {
+    required: false,
+    description: 'Server port number',
+    default: '5000',
+    type: 'number',
+    validate: (value) => {
+      const port = parseInt(value);
+      return port > 0 && port < 65535;
+    }
+  },
+  NODE_ENV: {
+    required: false,
+    description: 'Application environment',
+    default: 'development',
+    type: 'string',
+    allowedValues: ['development', 'staging', 'production']
+  },
+  DEBUG: {
+    required: false,
+    description: 'Enable debug logging',
+    default: 'false',
+    type: 'boolean'
+  },
+  
+  // CORS Configuration
+  CORS_ORIGINS: {
+    required: false,
+    description: 'Comma-separated origins for CORS',
+    default: 'http://localhost:3000,http://localhost:5000',
+    type: 'string'
   }
+};
+
+/**
+ * Get configuration object with all environment variables
+ * @returns {Object} Configuration object with validated values
+ */
+export const getConfig = () => {
+  const config = {};
+  
+  Object.entries(REQUIRED_ENV_VARS).forEach(([varName, schema]) => {
+    const value = import.meta.env[varName] || process.env[varName] || schema.default;
+    
+    // Type conversion
+    if (schema.type === 'number' && value) {
+      config[varName] = parseInt(value);
+    } else if (schema.type === 'boolean' && value) {
+      config[varName] = value === 'true' || value === true;
+    } else {
+      config[varName] = value;
+    }
+  });
+  
+  return config;
 };
 
 /**
  * Validates all required environment variables
  * Logs warnings for missing optional variables
- * @returns {Object} Validation result with status and details
- * @throws {Error} If critical required variables are missing
+ * Checks type correctness and custom validation rules
+ * @returns {Object} Validation result with status, errors, and warnings
  */
 export const validateEnvironmentVariables = () => {
   const validationResult = {
@@ -40,22 +130,38 @@ export const validateEnvironmentVariables = () => {
   };
 
   Object.entries(REQUIRED_ENV_VARS).forEach(([varName, config]) => {
-    const value = import.meta.env[varName];
+    const value = import.meta.env[varName] || process.env[varName];
 
     if (!value && config.required) {
       validationResult.isValid = false;
       validationResult.errors.push(
-        `Missing required environment variable: ${varName} (${config.description})`
+        `❌ Missing REQUIRED: ${varName} - ${config.description}`
       );
-    }
-
-    if (!value && !config.required && config.default) {
+    } else if (!value && config.default) {
       validationResult.warnings.push(
-        `${varName} not set, using default: ${config.default}`
+        `⚠️  Using default for ${varName}: "${config.default}"`
       );
       validationResult.variables[varName] = config.default;
     } else if (value) {
-      validationResult.variables[varName] = value;
+      // Validate against allowed values
+      if (config.allowedValues && !config.allowedValues.includes(value)) {
+        validationResult.errors.push(
+          `❌ Invalid value for ${varName}: "${value}". Allowed: ${config.allowedValues.join(', ')}`
+        );
+        validationResult.isValid = false;
+      }
+      
+      // Custom validation
+      if (config.validate && !config.validate(value)) {
+        validationResult.errors.push(
+          `❌ Invalid format for ${varName}: "${value}"`
+        );
+        validationResult.isValid = false;
+      }
+      
+      // Don't expose sensitive values in logs
+      const displayValue = config.sensitive ? '***' : value;
+      validationResult.variables[varName] = displayValue;
     }
   });
 
@@ -82,10 +188,10 @@ export const validateEnvironmentVariables = () => {
  * @returns {*} Environment variable value or default
  */
 export const getEnvVariable = (varName, defaultValue = undefined) => {
-  const value = import.meta.env[varName];
+  const value = import.meta.env[varName] || process.env[varName];
   
-  if (value === undefined && defaultValue !== undefined) {
-    console.warn(`Environment variable ${varName} not found, using default`);
+  if (!value && defaultValue !== undefined) {
+    console.warn(`⚠️  Environment variable ${varName} not found, using default`);
     return defaultValue;
   }
 
@@ -97,7 +203,8 @@ export const getEnvVariable = (varName, defaultValue = undefined) => {
  * @returns {boolean} True if in production
  */
 export const isProduction = () => {
-  return import.meta.env.MODE === 'production';
+  const env = process.env.NODE_ENV || import.meta.env.MODE || 'development';
+  return env === 'production';
 };
 
 /**
@@ -105,5 +212,25 @@ export const isProduction = () => {
  * @returns {boolean} True if in development
  */
 export const isDevelopment = () => {
-  return import.meta.env.MODE === 'development';
+  const env = process.env.NODE_ENV || import.meta.env.MODE || 'development';
+  return env === 'development';
+};
+
+/**
+ * Check if debug mode is enabled
+ * @returns {boolean} True if debug is enabled
+ */
+export const isDebugMode = () => {
+  const debug = getEnvVariable('DEBUG', 'false');
+  return debug === 'true' || debug === true;
+};
+
+export default {
+  getConfig,
+  validateEnvironmentVariables,
+  getEnvVariable,
+  isProduction,
+  isDevelopment,
+  isDebugMode,
+  REQUIRED_ENV_VARS
 };
