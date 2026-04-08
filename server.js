@@ -4,6 +4,8 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os';
+import healthCheckService from './src/services/healthCheckService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env.local') });
@@ -254,6 +256,9 @@ app.post('/api/chat', async (req, res) => {
       responseLength: aiMessage.length
     }, requestId);
     
+    // Record metrics
+    healthCheckService.recordRequest(duration, 200, true);
+    
     res.json({
       success: true,
       message: aiMessage,
@@ -284,6 +289,9 @@ app.post('/api/chat', async (req, res) => {
       userMessage = 'Request timeout. Please try a simpler question.';
     }
     
+    // Record metrics
+    healthCheckService.recordRequest(duration, statusCode, false);
+    
     res.status(statusCode).json({
       success: false,
       error: userMessage,
@@ -292,13 +300,56 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// Health check
+// Health check endpoint - basic status
 app.get('/api/health', (req, res) => {
-  logger.info('Health check passed', { uptime: `${process.uptime()}s` }, req.id);
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+  const health = healthCheckService.getHealthStatus();
+  logger.info('Health check requested', { status: health.status }, req.id);
+  res.status(health.status === 'healthy' ? 200 : 503).json(health);
+});
+
+// Metrics endpoint - detailed performance metrics
+app.get('/api/metrics', (req, res) => {
+  logger.info('Metrics endpoint accessed', {}, req.id);
+  const metrics = healthCheckService.getDetailedMetrics();
+  res.json(metrics);
+});
+
+// Status endpoint - comprehensive server status
+app.get('/api/status', (req, res) => {
+  const uptime = process.uptime();
+  const health = healthCheckService.getHealthStatus();
+  const memUsage = process.memoryUsage();
+  
+  logger.info('Status endpoint accessed', { uptime: `${uptime}s` }, req.id);
+  
+  res.json({
+    server: {
+      status: 'running',
+      uptime: `${Math.floor(uptime)}s`,
+      startTime: new Date(Date.now() - uptime * 1000).toISOString(),
+      currentTime: new Date().toISOString(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      cpuCount: os.cpus().length
+    },
+    api: {
+      status: health.status,
+      totalRequests: health.metrics.totalRequests,
+      errors: health.metrics.errorCount,
+      errorRate: health.metrics.errorRate,
+      avgResponseTime: health.metrics.averageResponseTime
+    },
+    memory: {
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
+    },
+    dependencies: {
+      openaiConfigured: !!OPENAI_API_KEY,
+      corsEnabled: true,
+      rateLimitingEnabled: true
+    }
   });
 });
 
@@ -311,7 +362,9 @@ app.listen(PORT, () => {
     endpoint: `/api/chat`,
     url: `http://localhost:${PORT}/api/chat`
   });
-  logger.info('Health check endpoint', { 
-    url: `http://localhost:${PORT}/api/health`
+  logger.info('Monitoring endpoints available', {
+    health: `http://localhost:${PORT}/api/health`,
+    metrics: `http://localhost:${PORT}/api/metrics`,
+    status: `http://localhost:${PORT}/api/status`
   });
 });
