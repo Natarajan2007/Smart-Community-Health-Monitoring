@@ -6,6 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
 import healthCheckService from './src/services/healthCheckService.js';
+import advancedLogger from './src/services/advancedLogger.js';
+import { createLoggingMiddleware, errorLoggingMiddleware } from './src/services/loggingMiddleware.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env.local') });
@@ -153,6 +155,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use(requestIdMiddleware);
 app.use(performanceMonitor);
 app.use(rateLimitMiddleware);
+app.use(createLoggingMiddleware({
+  logRequests: true,
+  logResponses: true,
+  logErrors: true,
+  excludePaths: ['/api/health', '/api/metrics', '/api/status', '/api/logs'],
+  includeBody: process.env.LOG_BODY === 'true',
+  includeHeaders: process.env.LOG_HEADERS === 'true'
+}));
 
 /**
  * Validate message format and content
@@ -353,6 +363,21 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Logging analytics endpoint - returns log summaries and analytics
+app.get('/api/logs', (req, res) => {
+  logger.info('Logs analytics endpoint accessed', {}, req.id);
+  
+  const logAnalytics = {
+    timestamp: new Date().toISOString(),
+    requests: advancedLogger.getRequestSummary(),
+    errors: advancedLogger.getErrorSummary(),
+    audits: advancedLogger.getAuditSummary(),
+    message: 'Log analytics summary. Use query params for filtering.'
+  };
+  
+  res.json(logAnalytics);
+});
+
 app.listen(PORT, () => {
   logger.info('Backend server started', { 
     port: PORT,
@@ -362,9 +387,10 @@ app.listen(PORT, () => {
     endpoint: `/api/chat`,
     url: `http://localhost:${PORT}/api/chat`
   });
-  logger.info('Monitoring endpoints available', {
+  logger.info('Monitoring & analytics endpoints available', {
     health: `http://localhost:${PORT}/api/health`,
     metrics: `http://localhost:${PORT}/api/metrics`,
-    status: `http://localhost:${PORT}/api/status`
+    status: `http://localhost:${PORT}/api/status`,
+    logs: `http://localhost:${PORT}/api/logs`
   });
 });
