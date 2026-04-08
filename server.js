@@ -8,6 +8,7 @@ import os from 'os';
 import healthCheckService from './src/services/healthCheckService.js';
 import advancedLogger from './src/services/advancedLogger.js';
 import { createLoggingMiddleware, errorLoggingMiddleware } from './src/services/loggingMiddleware.js';
+import openApiSpec from './src/config/openApiSpec.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env.local') });
@@ -378,6 +379,26 @@ app.get('/api/logs', (req, res) => {
   res.json(logAnalytics);
 });
 
+// OpenAPI documentation endpoint
+app.get('/api/docs/openapi.json', (req, res) => {
+  logger.info('OpenAPI spec requested', {}, req.id);
+  res.json(openApiSpec);
+});
+
+// API documentation index
+app.get('/api/docs', (req, res) => {
+  logger.info('API docs index accessed', {}, req.id);
+  res.json({
+    message: 'API Documentation Available',
+    endpoints: {
+      openapi: '/api/docs/openapi.json',
+      swagger: '/api/docs/swagger',
+      redoc: '/api/docs/redoc'
+    },
+    documentationUrl: 'See API_DOCUMENTATION.md for detailed info'
+  });
+});
+
 app.listen(PORT, () => {
   logger.info('Backend server started', { 
     port: PORT,
@@ -392,5 +413,10 @@ app.listen(PORT, () => {
     metrics: `http://localhost:${PORT}/api/metrics`,
     status: `http://localhost:${PORT}/api/status`,
     logs: `http://localhost:${PORT}/api/logs`
+  });
+  logger.info('API Documentation available', {
+    docs: `http://localhost:${PORT}/api/docs`,
+    openapi: `http://localhost:${PORT}/api/docs/openapi.json`,
+    markdownDoc: 'See API_DOCUMENTATION.md'
   });
 });
