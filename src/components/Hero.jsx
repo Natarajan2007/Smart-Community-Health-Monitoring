@@ -1,6 +1,16 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-export default function Hero({ translations }) {
+/**
+ * Hero Component - Landing Section
+ * Displays the main hero banner with title, subtitle, and call-to-action button.
+ * 
+ * Memoized component to prevent unnecessary re-renders.
+ * 
+ * @component
+ * @param {Object} translations - Translation object containing hero text
+ * @returns {JSX.Element} Hero section
+ */
+function Hero({ translations }) {
   return (
     <section className="hero">
       <div className="hero-content">
@@ -11,3 +21,5 @@ export default function Hero({ translations }) {
     </section>
   );
 }
+
+export default memo(Hero);

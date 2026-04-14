@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 
 /**
  * Header Component - Navigation and Language Switcher
  * 
  * Provides the main navigation bar with featured buttons (Eligibility, Quiz, Analytics, Chat)
  * and a language switcher for bilingual support (English/Hindi).
+ * 
+ * Memoized component to prevent unnecessary re-renders when props haven't changed.
  * 
  * @component
  * @param {string} language - Current language ('en' or 'hi')
@@ -21,14 +23,21 @@ import React from 'react';
  *   setCurrentPage={setCurrentPage}
  * />
  */
-export default function Header({ language, setLanguage, translations, setCurrentPage }) {
+function Header({ language, setLanguage, translations, setCurrentPage }) {
+  const handleLogoClick = useCallback(() => {
+    setCurrentPage('home');
+  }, [setCurrentPage]);
+
+  const handleLanguageToggle = useCallback(() => {
+    setLanguage(language === 'en' ? 'hi' : 'en');
+  }, [language, setLanguage]);
   return (
     <header className="header">
       <nav className="navbar">
         <div className="nav-container">
           <div className="logo">
             <button 
-              onClick={() => setCurrentPage('home')}
+              onClick={handleLogoClick}
               className="logo-btn"
               style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
@@ -92,3 +101,5 @@ export default function Header({ language, setLanguage, translations, setCurrent
     </header>
   );
 }
+
+export default memo(Header);

@@ -1,6 +1,16 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-export default function Comparison({ translations }) {
+/**
+ * Comparison Component - Side-by-side Account Comparison
+ * Displays a detailed comparison table of Aadhaar-Linked, Aadhaar-Seeded, and DBT-Enabled accounts.
+ * 
+ * Memoized component to prevent unnecessary re-renders.
+ * 
+ * @component
+ * @param {Object} translations - Translation object containing comparison data and text
+ * @returns {JSX.Element} Comparison section with table and summary boxes
+ */
+function Comparison({ translations }) {
   const t = translations.comparison;
   
   return (
@@ -49,3 +59,5 @@ export default function Comparison({ translations }) {
     </section>
   );
 }
+
+export default memo(Comparison);

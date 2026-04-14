@@ -1,6 +1,16 @@
-import React from 'react';
+import React, { memo } from 'react';
 
-export default function Footer({ translations }) {
+/**
+ * Footer Component - Page Footer
+ * Displays disclaimer and copyright information.
+ * 
+ * Memoized component to prevent unnecessary re-renders.
+ * 
+ * @component
+ * @param {Object} translations - Translation object containing footer text
+ * @returns {JSX.Element} Footer section
+ */
+function Footer({ translations }) {
   const t = translations.footer;
   
   return (
@@ -12,3 +22,5 @@ export default function Footer({ translations }) {
     </footer>
   );
 }
+
+export default memo(Footer);
