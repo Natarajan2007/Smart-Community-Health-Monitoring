@@ -100,7 +100,7 @@ const ChatPage = ({ language, setCurrentPage }) => {
       <div className="chat-page-container">
         <div className="chat-messages-section">
           {messages.map((msg, idx) => (
-            <div key={idx} className={`message ${msg.role}`}>
+            <div key={msg.id || `msg_${idx}`} className={`message ${msg.role}`}>
               <div className="message-avatar">
                 {msg.role === 'user' ? '👤' : '🤖'}
               </div>

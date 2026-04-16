@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { quizData, scoringRules, badges } from '../data/quizData';
+import { generateUniqueId } from '../utils/idGenerator';
 import '../scss/GamifiedQuiz.scss';
 
 const GamifiedQuiz = ({ language = 'en' }) => {
@@ -254,7 +255,7 @@ const GamifiedQuiz = ({ language = 'en' }) => {
           <div className="options-container">
             {currentQ.options.map((option, index) => (
               <button
-                key={index}
+                key={`q${currentQuestion}_opt${index}`}
                 className={`option-button ${selectedAnswer === index ? 'selected' : ''} ${
                   answered && index === currentQ.correct
                     ? 'correct'

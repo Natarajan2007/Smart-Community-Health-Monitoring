@@ -30,7 +30,9 @@ const getCachedResponse = (cacheKey) => {
   if (queryCache.has(cacheKey)) {
     const cached = queryCache.get(cacheKey);
     if (Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('[Cache] Hit for:', cacheKey);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Cache] Hit for:', cacheKey);
+      }
       return cached.response;
     } else {
       queryCache.delete(cacheKey);

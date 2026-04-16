@@ -42,7 +42,9 @@ export const createHttpClient = (baseURL, options = {}) => {
       return config;
     },
     (error) => {
-      console.error('[Request Error]', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Request Error]', error);
+      }
       return Promise.reject(error);
     }
   );
@@ -73,7 +75,9 @@ export const createHttpClient = (baseURL, options = {}) => {
       // Handle specific error codes
       if (error.response?.status === 401) {
         // Token expired - refresh and retry
-        console.warn('[Auth Error] Token expired, attempting refresh...');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Auth Error] Token expired, attempting refresh...');
+        }
         localStorage.removeItem('authToken');
         // Redirect to login
         window.location.href = '/login';
@@ -81,12 +85,16 @@ export const createHttpClient = (baseURL, options = {}) => {
 
       if (error.response?.status === 429) {
         // Rate limit - exponential backoff
-        console.warn('[Rate Limit] Backing off...');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Rate Limit] Backing off...');
+        }
       }
 
       if (error.response?.status >= 500) {
         // Server error
-        console.error('[Server Error]', error.response.data);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[Server Error]', error.response.data);
+        }
       }
 
       // Log error in development
@@ -133,9 +141,11 @@ export const addRetryInterceptor = (client, maxRetries = 3, retryDelay = 1000) =
         const baseDelay = retryDelay * Math.pow(2, config.retryCount - 1);
         const delay = baseDelay + Math.random() * 1000; // Add jitter
 
-        console.log(
-          `[Retry] Attempt ${config.retryCount}/${maxRetries} after ${delay}ms - ${config.url}`
-        );
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            `[Retry] Attempt ${config.retryCount}/${maxRetries} after ${delay}ms - ${config.url}`
+          );
+        }
 
         await new Promise((resolve) => setTimeout(resolve, delay));
         return client(config);
@@ -179,7 +189,9 @@ export const addCacheInterceptor = (client, cacheDuration = 5 * 60 * 1000) => {
     (error) => {
       // Return cached data if available
       if (error.config.cached && error.config.cachedData) {
-        console.warn('[Cache] Returning cached data due to network error');
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Cache] Returning cached data due to network error');
+        }
         return Promise.resolve({
           data: error.config.cachedData,
           status: 200,

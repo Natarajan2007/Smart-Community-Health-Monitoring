@@ -16,7 +16,7 @@ export default function FAQ({ translations }) {
         
         <div className="faq-container">
           {t.questions.map((item, idx) => (
-            <div key={idx} className="faq-item">
+            <div key={`faq_${idx}`} className="faq-item">
               <button
                 className="faq-question"
                 onClick={() => toggleExpand(idx)}

@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useReducer } from 'react';
+import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
 
 /**
  * useAsync Hook - Handle async operations with loading, error, and data states
@@ -54,7 +55,7 @@ export const usePrevious = (value) => {
 };
 
 /**
- * useLocalStorage Hook - Sync state with localStorage
+ * useLocalStorage Hook - Sync state with localStorage (safe version)
  * @param {string} key - LocalStorage key
  * @param {*} initialValue - Initial value if not in storage
  * @returns {Array} [storedValue, setValue]
@@ -62,10 +63,12 @@ export const usePrevious = (value) => {
 export const useLocalStorage = (key, initialValue) => {
   const [storedValue, setStoredValue] = useState(() => {
     try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      const value = safeGetStorage(key);
+      return value !== null ? value : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`Error reading localStorage key "${key}":`, error);
+      }
       return initialValue;
     }
   });
@@ -75,9 +78,11 @@ export const useLocalStorage = (key, initialValue) => {
       try {
         const valueToStore = value instanceof Function ? value(storedValue) : value;
         setStoredValue(valueToStore);
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        safeSetStorage(key, valueToStore);
       } catch (error) {
-        console.error(`Error setting localStorage key "${key}":`, error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`Error setting localStorage key "${key}":`, error);
+        }
       }
     },
     [key, storedValue]

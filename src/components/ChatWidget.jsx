@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { chatWithAI } from '../services/openaiService';
+import { generateUniqueId } from '../utils/idGenerator';
 import '../scss/ChatWidget.scss';
 
 /**
@@ -48,18 +49,20 @@ const ChatWidget = ({ language, translations }) => {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([{
+        id: generateUniqueId('msg'),
         role: 'assistant',
         content: labels.welcome,
         timestamp: new Date()
       }]);
     }
-  }, [isOpen]);
+  }, [isOpen, labels]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
 
     setError(null); // Clear previous errors
     const userMessage = {
+      id: generateUniqueId('msg'),
       role: 'user',
       content: inputValue,
       timestamp: new Date()
@@ -80,21 +83,26 @@ const ChatWidget = ({ language, translations }) => {
       );
 
       setMessages(prev => [...prev, {
+        id: generateUniqueId('msg'),
         role: response.role,
         content: response.message,
         timestamp: new Date()
       }]);
       setRetryCount(0); // Reset retry count on success
     } catch (err) {
-      console.error('Chat error:', err);
-      setError(err.message || 'Failed to get response. Please try again.');
+      const errorMessage = err.message || 'Failed to get response. Please try again.';
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[ChatWidget] Error:', err);
+      }
+      setError(errorMessage);
       
       // Add error message to chat
       setMessages(prev => [...prev, {
+        id: generateUniqueId('msg'),
         role: 'assistant',
         content: language === 'en' 
-          ? `I encountered an error: ${err.message}. Please try again or contact support.`
-          : `मुझे एक त्रुटि का सामना करना पड़ा: ${err.message}। कृपया पुनः प्रयास करें या समर्थन से संपर्क करें।`,
+          ? `I encountered an error: ${errorMessage}. Please try again or contact support.`
+          : `मुझे एक त्रुटि का सामना करना पड़ा: ${errorMessage}। कृपया पुनः प्रयास करें या समर्थन से संपर्क करें।`,
         timestamp: new Date(),
         isError: true
       }]);
@@ -156,9 +164,9 @@ const ChatWidget = ({ language, translations }) => {
           )}
 
           <div className="chat-messages" role="log" aria-live="polite" aria-label={language === 'en' ? 'Chat messages' : 'चैट संदेश'}>
-            {messages.map((msg, idx) => (
+            {messages.map((msg) => (
               <div 
-                key={idx} 
+                key={msg.id} 
                 className={`message ${msg.role} ${msg.isError ? 'error' : ''}`}
                 role="article"
                 aria-label={`${msg.role === 'user' ? (language === 'en' ? 'Your message' : 'आपका संदेश') : (language === 'en' ? 'Assistant message' : 'सहायक संदेश')}`}

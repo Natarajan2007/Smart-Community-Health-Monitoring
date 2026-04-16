@@ -24,13 +24,13 @@ function Comparison({ translations }) {
             <thead>
               <tr>
                 {t.columnHeaders.map((header, idx) => (
-                  <th key={idx}>{header}</th>
+                  <th key={`header_${idx}`}>{header}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {t.rows.map((row, idx) => (
-                <tr key={idx}>
+                <tr key={`row_${idx}`}>
                   <td className="feature-name">{row.feature}</td>
                   <td>{row.linked}</td>
                   <td>{row.seeded}</td>

@@ -204,7 +204,7 @@ const AnalyticsDashboard = ({ language = 'en' }) => {
                 <h3>{t.performance}</h3>
                 <div className="trend-chart">
                   {analytics.performanceTrend.map((item, idx) => (
-                    <div key={idx} className="trend-bar">
+                    <div key={`perf_trend_${idx}`} className="trend-bar">
                       <div
                         className="bar-fill"
                         style={{ height: `${item.score}%`, backgroundColor: getScoreColor(item.score) }}
@@ -279,7 +279,7 @@ const AnalyticsDashboard = ({ language = 'en' }) => {
                 <h3>{t.readinessTrend}</h3>
                 <div className="trend-chart">
                   {analytics.readinessTrend.map((item, idx) => (
-                    <div key={idx} className="trend-bar">
+                    <div key={`topic_trend_${idx}`} className="trend-bar">
                       <div
                         className="bar-fill"
                         style={{ height: `${item.readiness}%`, backgroundColor: getReadinessColor(item.readiness) }}

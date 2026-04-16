@@ -35,7 +35,7 @@ export default function Education({ translations }) {
             <p>{t.aadhaarLinked.description}</p>
             <ul>
               {t.aadhaarLinked.features.map((feature, idx) => (
-                <li key={idx}>✓ {feature}</li>
+                <li key={`linked_${idx}`}>✓ {feature}</li>
               ))}
             </ul>
           </div>
@@ -46,7 +46,7 @@ export default function Education({ translations }) {
             <p>{t.aadhaarSeeded.description}</p>
             <ul>
               {t.aadhaarSeeded.features.map((feature, idx) => (
-                <li key={idx}>✓ {feature}</li>
+                <li key={`seeded_${idx}`}>✓ {feature}</li>
               ))}
             </ul>
           </div>
@@ -57,7 +57,7 @@ export default function Education({ translations }) {
             <p>{t.dbtEnabled.description}</p>
             <ul>
               {t.dbtEnabled.features.map((feature, idx) => (
-                <li key={idx}>✓ {feature}</li>
+                <li key={`dbt_${idx}`}>✓ {feature}</li>
               ))}
             </ul>
           </div>
@@ -93,7 +93,7 @@ export default function Education({ translations }) {
           <h3>⚠️ {translations.commonIssues.title}</h3>
           <div className="issues-grid">
             {translations.commonIssues.issues.map((issue, idx) => (
-              <div key={idx} className="issue-card">
+              <div key={`issue_${idx}`} className="issue-card">
                 <h4>{issue.problem}</h4>
                 <p>{issue.solution}</p>
               </div>

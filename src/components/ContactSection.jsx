@@ -11,7 +11,7 @@ export default function ContactSection({ translations }) {
         
         <div className="contacts-grid">
           {t.contacts.map((contact, idx) => (
-            <div key={idx} className="contact-card">
+            <div key={`contact_${idx}_${contact.name}`} className="contact-card">
               <h4>📞 {contact.name}</h4>
               <p className="contact-number">{contact.contact}</p>
               <p className="contact-desc">{contact.desc}</p>
