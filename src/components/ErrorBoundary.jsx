@@ -1,4 +1,5 @@
 import React from 'react';
+import { safeGetStorage, safeSetStorage } from '../utils/safeStorage';
 import '../scss/ErrorBoundary.scss';
 
 /**
@@ -38,8 +39,10 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error details for debugging
-    console.error('Error caught by boundary:', error, errorInfo);
+    // Log error details for debugging (dev only)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error caught by boundary:', error, errorInfo);
+    }
     
     // Store error information
     const errorRecord = {
@@ -52,9 +55,9 @@ class ErrorBoundary extends React.Component {
     // Add to error log
     this.errorLog.push(errorRecord);
     
-    // Track in localStorage for analytics
+    // Track in localStorage for analytics (safe version)
     try {
-      const existingLog = JSON.parse(localStorage.getItem('errorBoundaryLog') || '[]');
+      const existingLog = safeGetStorage('errorBoundaryLog', []);
       existingLog.push({
         ...errorRecord,
         error: error.toString(),
@@ -66,7 +69,7 @@ class ErrorBoundary extends React.Component {
         existingLog.shift();
       }
       
-      localStorage.setItem('errorBoundaryLog', JSON.stringify(existingLog));
+      safeSetStorage('errorBoundaryLog', existingLog);
     } catch (e) {
       console.warn('Could not save error to localStorage:', e);
     }

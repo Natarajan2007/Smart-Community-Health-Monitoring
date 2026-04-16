@@ -1,9 +1,10 @@
 // Analytics Service for tracking user engagement and performance
+import { safeGetStorage, safeSetStorage, safeRemoveStorage } from '../utils/safeStorage.js';
 
 export const analyticsService = {
   // Initialize analytics data in localStorage
   initializeAnalytics: () => {
-    const existing = localStorage.getItem('dbtAnalytics');
+    const existing = safeGetStorage('dbtAnalytics');
     if (!existing) {
       const initialData = {
         totalUsers: 0,
@@ -30,10 +31,10 @@ export const analyticsService = {
         quizPerformance: [],
         eligibilityTrends: []
       };
-      localStorage.setItem('dbtAnalytics', JSON.stringify(initialData));
+      safeSetStorage('dbtAnalytics', initialData);
       return initialData;
     }
-    return JSON.parse(existing);
+    return existing;
   },
 
   // Track user session
@@ -54,7 +55,7 @@ export const analyticsService = {
     analytics.totalSessions++;
     analytics.totalUsers = new Set(analytics.userSessions.map(s => s.userId)).size;
 
-    localStorage.setItem('dbtAnalytics', JSON.stringify(analytics));
+    safeSetStorage('dbtAnalytics', analytics);
     return session.id;
   },
 
@@ -94,7 +95,7 @@ export const analyticsService = {
         category: 'quiz'
       });
 
-      localStorage.setItem('dbtAnalytics', JSON.stringify(analytics));
+      safeSetStorage('dbtAnalytics', analytics);
     }
   },
 
@@ -127,7 +128,7 @@ export const analyticsService = {
         readiness: readinessScore
       });
 
-      localStorage.setItem('dbtAnalytics', JSON.stringify(analytics));
+      safeSetStorage('dbtAnalytics', analytics);
     }
   },
 
@@ -154,7 +155,7 @@ export const analyticsService = {
         analytics.topicEngagement[topicMap[mappedTopic]]++;
       }
 
-      localStorage.setItem('dbtAnalytics', JSON.stringify(analytics));
+      safeSetStorage('dbtAnalytics', analytics);
     }
   },
 
@@ -257,7 +258,7 @@ export const analyticsService = {
 
   // Reset analytics (admin only)
   resetAnalytics: () => {
-    localStorage.removeItem('dbtAnalytics');
+    safeRemoveStorage('dbtAnalytics');
     return analyticsService.initializeAnalytics();
   }
 };
