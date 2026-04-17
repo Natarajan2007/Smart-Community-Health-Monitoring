@@ -1,8 +1,25 @@
 {
   "name": "aadhaar-dbt-awareness",
-  "private": true,
-  "version": "1.0.2",
+  "private": false,
+  "version": "1.1.1",
   "type": "module",
+  "description": "Comprehensive multi-language educational platform for understanding Aadhaar-Linked, Aadhaar-Seeded, and DBT-enabled bank accounts",
+  "author": "Smart Community Health Monitoring",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Natarajan2007/Smart-Community-Health-Monitoring.git"
+  },
+  "keywords": [
+    "aadhaar",
+    "dbt",
+    "banking",
+    "education",
+    "india",
+    "react",
+    "accessibility",
+    "multilingual"
+  ],
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
