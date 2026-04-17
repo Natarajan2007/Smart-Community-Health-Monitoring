@@ -11,6 +11,9 @@ lerna-debug.log*
 node_modules/
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
+.pnp
+.pnp.js
 
 # Build outputs
 dist/
@@ -19,12 +22,19 @@ dist-ssr/
 build/
 .cache/
 .parcel-cache/
+out/
+
+# Test coverage
+coverage/
+.nyc_output/
+*.lcov
 
 # Environment variables
 .env
 .env.local
 .env.*.local
 *.env
+.env.production.local
 
 # IDE & Editor files
 .vscode/*
@@ -42,12 +52,36 @@ build/
 Thumbs.db
 *.sublime-workspace
 *.sublime-project
+.project
+.classpath
 
 # OS specific
 .AppleDouble
 .LSOverride
 Icon
 ._*
+.Spotlight-V100
+.Trashes
+
+# Runtime & Misc
+.next/
+.nuxt/
+dist/
+*.local
+*.lock
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/extensions.json
+!.vscode/extensions.json
+
+# Development
+.DS_Store
+node_modules/
+dist/
+coverage/
 
 # Testing & Coverage
 coverage/
